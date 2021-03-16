@@ -12,6 +12,11 @@ In most of the below cases, there will be a web interface running at http://loca
 
 **If anything goes wrong while running the commands below, please scroll down to the bottom of this page. There's troubleshooting information there.**
 
+Running with Docker
+-------------------------
+Tech234a has written a page about how to run projects in Docker [here](https://www.archiveteam.org/index.php?title=Running_Archive_Team_Projects_with_Docker).
+
+
 Running with a warrior
 -------------------------
 
