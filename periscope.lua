@@ -23,6 +23,7 @@ local discovered = {}
 local bad_items = {}
 
 local current_access_token = nil
+local current_broadcast_id = nil
 
 if not urlparse or not http then
   io.stdout:write("socket not corrently installed.\n")
@@ -46,6 +47,27 @@ abort_item = function(abort)
     io.stdout:write("Aborting item " .. item_name .. ".\n")
     io.stdout:flush()
     bad_items[item_name] = true
+  end
+end
+
+register_identifier = function(identifier)
+  if identifier == item_value then
+    return nil
+  end
+  for _, s in pairs({"id:" .. identifier, identifier .. ";" .. item_value}) do
+    io.stdout:write("Registering " .. s .. " as discovered.\n")
+    io.stdout:flush()
+    local body, code, headers, status = http.request(
+      "http://blackbird-amqp.meo.ws:23038/periscope-archived-pzp644wwf6omdpc/",
+      s
+    )
+    io.stdout:write("Got status code " .. code .. ".\n")
+    io.stdout:flush()
+    if code ~= 200 and code ~= 409 then
+      io.stdout:write("Could not set " .. s .. " as discovered.\n")
+      io.stdout:flush()
+      abort_item()
+    end
   end
 end
 
@@ -169,6 +191,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   end
 
   local function checknewshorturl(newurl)
+    checknewurl(newurl)
     if string.match(newurl, "^%?") then
       check(urlparse.absolute(url, newurl))
     elseif not (string.match(newurl, "^https?:\\?/\\?//?/?")
@@ -226,18 +249,44 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     html = read_file(file)
     if string.match(url, "^https?://pscp%.tv/[^/]+/")
       or string.match(url, "^https?://www%.pscp%.tv/[^/]+/")
+      or string.match(url, "^https?://periscope%.tv/[^/]+/")
+      or string.match(url, "^https?://www%.periscope%.tv/[^/]+/")
       or string.match(url, "/card$") then
-      check("https://proxsee.pscp.tv/api/v2/accessVideoPublic?broadcast_id=" .. item_value .. "&replay_redirect=false")
-      --check("https://proxsee.pscp.tv/api/v2/accessVideoPublic?broadcast_id=" .. item_value .. "&replay_redirect=true")
-      --check("https://proxsee.pscp.tv/api/v2/accessVideoPublic?broadcast_id=" .. item_value)
       local match = string.match(html, 'data%-store="({.-})"')
       if not match then
         abort_item()
       end
       local json = JSON:decode(string.gsub(match, "&quot;", '"'))
+      local identifier = nil
+      for s, _ in pairs(jg(json, {"BroadcastCache", "broadcasts"})) do
+        if identifier then
+          io.stdout:write("Found bad number of broadcasts.\n")
+          io.stdout:flush()
+          abort_item()
+        end
+        identifier = s
+        current_broadcast_id = identifier
+      end
+      if not identifier and string.match(url, "/card$") then
+        if not current_broadcast_id then
+          io.stdout:write("Broadcast identifier not found yet.\n")
+          io.stdout:flush()
+          abort_item()
+        end
+        identifier = current_broadcast_id
+      end
+      if not identifier then
+        io.stdout:write("Found no broadcast.\n")
+        io.stdout:flush()
+        abort_item()
+      end
+      ids[identifier] = true
+      register_identifier(identifier)
+      check("https://pscp.tv/w/" .. identifier)
+      check("https://proxsee.pscp.tv/api/v2/accessVideoPublic?broadcast_id=" .. identifier .. "&replay_redirect=false")
       check(
         "https://proxsee.pscp.tv/api/v2/publicReplayThumbnailPlaylist"
-        .. "?broadcast_id=" .. item_value
+        .. "?broadcast_id=" .. identifier
         .. "&session_id=" .. jg(json, {"SessionToken", "public", "thumbnailPlaylist", "token", "session_id"})
       )
       if not string.match(url, "/card$") then
@@ -254,6 +303,11 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
           .. "&session_id=" .. jg(json, {"SessionToken", "public", "broadcastHistory", "token", "session_id"})
         )
       end
+      local a, b = string.match(url, "^(https?://[^/]-)[^%.]+%.tv(/.+)$")
+      if a and b then
+        check(a .. "periscope.tv" .. b)
+        check(a .. "pscp.tv" .. b)
+      end
     end
     if string.match(url, "%.m3u8") then
       for line in string.gmatch(html, "([^\n]+)") do
@@ -266,14 +320,12 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       local json = JSON:decode(html)
       check("https://proxsee.pscp.tv/api/v2/accessChatPublic?chat_token=" .. jg(json, {"chat_token"}))
       check("https://proxsee.pscp.tv/api/v2/replayViewedPublic?life_cycle_token=" .. jg(json, {"life_cycle_token"}) .. "&auto_play=false")
-      --check("https://proxsee.pscp.tv/api/v2/replayViewedPublic?life_cycle_token=" .. json["life_cycle_token"] .. "&auto_play=true")
-      --check("https://proxsee.pscp.tv/api/v2/replayViewedPublic?life_cycle_token=" .. json["life_cycle_token"])
     end
-    if string.match(url, "^https?://proxsee%.pscp%.tv/api/v2/replayViewedPublic") then
+    if string.match(url, "^https?://[^/]+/api/v2/replayViewedPublic") then
       local json = JSON:decode(html)
       check("https://proxsee.pscp.tv/api/v2/pingReplayViewedPublic?session=" .. jg(json, {"session"}))
     end
-    if string.match(url, "^https?://proxsee%.pscp%.tv/api/v2/accessChatPublic") then
+    if string.match(url, "^https?://[^/]+/api/v2/accessChatPublic") then
       local json = JSON:decode(html)
       current_access_token = jg(json, {"access_token"})
       if current_access_token ~= jg(json, {"replay_access_token"}) then
