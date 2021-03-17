@@ -108,7 +108,10 @@ allowed = function(url, parenturl)
 
   if string.match(url, "^https?://[^/]*video%.pscp%.tv/")
     or string.match(url, "^https?://[^/]+/api/")
-    or string.match(url, "^https?://[^/]+/chatapi/v1/history") then
+    or string.match(url, "^https?://[^/]+/chatapi/v1/history")
+    or string.match(url, "%.jpg")
+    or string.match(url, "%.m3u8")
+    or string.match(url, "%.ts") then
     return true
   end
 
