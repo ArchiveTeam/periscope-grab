@@ -256,6 +256,12 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       if not match then
         abort_item()
       end
+      local api_url = nil
+      if string.match(url, "^https?://[^/]*pscp%.tv/") then
+        api_url = "https://proxsee.pscp.tv"
+      elseif string.match(url, "^https?://[^/]*periscope%.tv/") then
+        api_url = "https://api.periscope.tv"
+      end
       local json = JSON:decode(string.gsub(match, "&quot;", '"'))
       local identifier = nil
       for s, _ in pairs(jg(json, {"BroadcastCache", "broadcasts"})) do
@@ -283,9 +289,9 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       ids[identifier] = true
       register_identifier(identifier)
       check("https://pscp.tv/w/" .. identifier)
-      check("https://proxsee.pscp.tv/api/v2/accessVideoPublic?broadcast_id=" .. identifier .. "&replay_redirect=false")
+      check(api_url .. "/api/v2/accessVideoPublic?broadcast_id=" .. identifier .. "&replay_redirect=false")
       check(
-        "https://proxsee.pscp.tv/api/v2/publicReplayThumbnailPlaylist"
+        api_url .. "/api/v2/publicReplayThumbnailPlaylist"
         .. "?broadcast_id=" .. identifier
         .. "&session_id=" .. jg(json, {"SessionToken", "public", "thumbnailPlaylist", "token", "session_id"})
       )
@@ -297,7 +303,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
           abort_item()
         end
         check(
-          "https://proxsee.pscp.tv/api/v2/getUserBroadcastsPublic"
+          api_url .. "/api/v2/getUserBroadcastsPublic"
           .. "?user_id=" .. user_id
           .. "&all=true"
           .. "&session_id=" .. jg(json, {"SessionToken", "public", "broadcastHistory", "token", "session_id"})
@@ -318,12 +324,14 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
     if string.match(url, "^https?://[^/]+/api/v2/accessVideoPublic") then
       local json = JSON:decode(html)
-      check("https://proxsee.pscp.tv/api/v2/accessChatPublic?chat_token=" .. jg(json, {"chat_token"}))
-      check("https://proxsee.pscp.tv/api/v2/replayViewedPublic?life_cycle_token=" .. jg(json, {"life_cycle_token"}) .. "&auto_play=false")
+      local api_url = string.match(url, "^(https?://[^/]+)")
+      check(api_url .. "/api/v2/accessChatPublic?chat_token=" .. jg(json, {"chat_token"}))
+      check(api_url .. "/api/v2/replayViewedPublic?life_cycle_token=" .. jg(json, {"life_cycle_token"}) .. "&auto_play=false")
     end
     if string.match(url, "^https?://[^/]+/api/v2/replayViewedPublic") then
       local json = JSON:decode(html)
-      check("https://proxsee.pscp.tv/api/v2/pingReplayViewedPublic?session=" .. jg(json, {"session"}))
+      local api_url = string.match(url, "^(https?://[^/]+)")
+      check(api_url .. "/api/v2/pingReplayViewedPublic?session=" .. jg(json, {"session"}))
     end
     if string.match(url, "^https?://[^/]+/api/v2/accessChatPublic") then
       local json = JSON:decode(html)
