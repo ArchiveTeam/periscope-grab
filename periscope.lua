@@ -26,7 +26,7 @@ local current_access_token = nil
 local current_broadcast_id = nil
 
 if not urlparse or not http then
-  io.stdout:write("socket not corrently installed.\n")
+  io.stdout:write("socket not correctly installed.\n")
   io.stdout:flush()
   abortgrab = true
 end
@@ -137,7 +137,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     local url = string.match(urla, "^([^#]+)")
     local url_ = string.match(url, "^(.-)%.?$")
     url_ = string.gsub(url_, "&amp;", "&")
-    url_ = string.gsub(url_, "\\[uU]([0-9][0-9][0-9][0-9])", function (s)
+    url_ = string.gsub(url_, "\\[uU]([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])", function (s)
       local i = tonumber(s, 16)
       if i < 128 then
         return string.char(i)
@@ -442,6 +442,11 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   
   if status_code >= 200 and status_code <= 399 then
     downloaded[url["url"]] = true
+  end
+
+  if status_code == 429 then
+    os.execute("sleep 14400")
+    return wget.actions.ABORT
   end
 
   if status_code == 0
