@@ -458,7 +458,8 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
       io.stdout:write("I give up...\n")
       io.stdout:flush()
       tries = 0
-      if not allowed(url["url"], nil) then
+      if string.match(url["url"], "^https?://www%.pscp%.tv/w/[0-9a-zA-Z]+$")
+        or not allowed(url["url"], nil) then
         return wget.actions.EXIT
       end
       abort_item(true)
